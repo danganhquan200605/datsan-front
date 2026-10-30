@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+/* Khai báo đầy đủ các class spacing & typography của Stitch */
+@layer utilities {
+  .gap-space-xs { gap: 0.25rem; }
+  .gap-space-sm { gap: 0.5rem; }
+  .gap-space-md { gap: 1rem; }
+  .gap-space-lg { gap: 1.5rem; }
+  .gap-space-xl { gap: 2rem; }
+
+  .px-margin-desktop { padding-left: 2rem; padding-right: 2rem; }
+  .pt-space-md { padding-top: 1rem; }
+  .pb-space-sm { padding-bottom: 0.5rem; }
+
+  .font-label-sm { font-size: 0.75rem; line-height: 1rem; font-weight: 500; }
+  .font-label-md { font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; }
+  .font-headline-md { font-size: 1.5rem; line-height: 2rem; font-weight: 700; }
+  .text-body-sm { font-size: 0.875rem; line-height: 1.25rem; }
+
+  .bg-surface-container-lowest { background-color: #ffffff; }
+  .bg-surface-container-low { background-color: #f7f9f6; }
+  .bg-surface-container { background-color: #f0f1ee; }
+  .bg-surface-container-high { background-color: #e8e9e5; }
+  .bg-surface-container-highest { background-color: #e1e3e0; }
+  
+  .bg-primary { background-color: #006c4c; }
+  .text-on-primary { color: #ffffff; }
+  .text-on-surface { color: #191c1a; }
+  .text-on-surface-variant { color: #404943; }
+  .text-outline { color: #707973; }
+}
+
+* {
+  box-sizing: border-box;
+}
