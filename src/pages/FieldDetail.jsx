@@ -59,7 +59,7 @@ export default function FieldDetail({ sanId = 1, onBack }) {
 
   // Ghi nhớ sanId vào localStorage để F5 không bị mất trang
   useEffect(() => {
-    localStorage.setItem('activeSanId', sanId);
+    sessionStorage.setItem('activeSanId', sanId);
     async function loadSanBaseInfo() {
       try {
         setInitialLoading(true);
@@ -164,7 +164,7 @@ export default function FieldDetail({ sanId = 1, onBack }) {
     if (selectedSlots.length === 0) return;
     
     // Lấy thông tin user (để lấy mã Khách hàng), mặc định 4 nếu chưa đăng nhập
-    const localUser = JSON.parse(localStorage.getItem('datsan_user'));
+    const localUser = JSON.parse(sessionStorage.getItem('datsan_user'));
     const maKH = localUser ? localUser.MaNguoiDung : 4; 
 
     try {
@@ -235,7 +235,7 @@ export default function FieldDetail({ sanId = 1, onBack }) {
           <div className="flex items-center gap-4">
             <button 
               onClick={() => {
-                localStorage.removeItem('activeSanId');
+                sessionStorage.removeItem('activeSanId');
                 onBack();
               }} 
               className="p-2 hover:bg-slate-100 rounded-xl transition text-slate-600 flex items-center gap-1.5 text-xs font-bold"

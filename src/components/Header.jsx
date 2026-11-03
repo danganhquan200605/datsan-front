@@ -26,7 +26,7 @@ export default function Header({
 
   // Xử lý đăng xuất
   const handleLogout = () => {
-    localStorage.removeItem('datsan_user');
+    sessionStorage.removeItem('datsan_user');
     setUser(null);
     setShowDropdown(false);
     navigate('/');

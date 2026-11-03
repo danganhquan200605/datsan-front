@@ -12,7 +12,7 @@ export default function RegisterField() {
 
   const [currentUser, setCurrentUser] = useState(() => {
     try {
-      const savedUser = localStorage.getItem('datsan_user');
+      const savedUser = sessionStorage.getItem('datsan_user');
       return savedUser ? JSON.parse(savedUser) : null;
     } catch (e) {
       return null;
@@ -195,7 +195,7 @@ export default function RegisterField() {
 
       const updatedUser = { ...currentUser, VaiTro: 'CHUSAN', vaitro: 'CHUSAN' };
       setCurrentUser(updatedUser);
-      localStorage.setItem('datsan_user', JSON.stringify(updatedUser));
+      sessionStorage.setItem('datsan_user', JSON.stringify(updatedUser));
 
       alert('Đăng ký cụm sân toàn diện thành công!');
       navigate('/owner');

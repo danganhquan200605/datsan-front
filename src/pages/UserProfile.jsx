@@ -14,7 +14,7 @@ export default function UserProfile() {
   // 1. Lấy thông tin user hiện tại từ LocalStorage / State
   const [user, setUser] = useState(() => {
     try {
-      const savedUser = localStorage.getItem('datsan_user');
+      const savedUser = sessionStorage.getItem('datsan_user');
       return savedUser ? JSON.parse(savedUser) : null;
     } catch (e) {
       return null;
@@ -122,7 +122,7 @@ export default function UserProfile() {
         email: email
       };
       setUser(updatedUser);
-      localStorage.setItem('datsan_user', JSON.stringify(updatedUser));
+      sessionStorage.setItem('datsan_user', JSON.stringify(updatedUser));
 
       setIsEditingProfile(false);
       alert('Cập nhật thông tin cá nhân thành công!');

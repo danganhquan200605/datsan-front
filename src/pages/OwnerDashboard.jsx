@@ -13,7 +13,7 @@ export default function OwnerDashboard() {
   // Lấy thông tin chủ sân đang đăng nhập
   const [currentUser, setCurrentUser] = useState(() => {
     try {
-      const savedUser = localStorage.getItem('datsan_user');
+      const savedUser = sessionStorage.getItem('datsan_user');
       return savedUser ? JSON.parse(savedUser) : null;
     } catch (e) {
       return null;

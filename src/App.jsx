@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
 // Import các trang giao diện chính
@@ -13,24 +14,34 @@ import OwnerDashboard from './pages/OwnerDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 
 function App() {
+  // Đọc dữ liệu tài khoản từ sessionStorage (tắt tab/trình duyệt sẽ tự đăng xuất về Guest)
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const savedUser = sessionStorage.getItem('datsan_user');
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+
   return (
     <Router>
       <Routes>
         {/* 1. Luồng Khách Hàng (Customer Flow) */}
-        <Route path="/" element={<Home />} />
-        <Route path="/field/:id" element={<FieldDetail />} />
-        <Route path="/checkout" element={<Checkout />} />
-        <Route path="/ticket/:id" element={<Ticket />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/matchmaking" element={<Matchmaking />} />
-        <Route path="/profile/*" element={<UserProfile />} />
-        <Route path="/register-field" element={<RegisterField />} />
+        <Route path="/" element={<Home user={currentUser} setUser={setCurrentUser} />} />
+        <Route path="/field/:id" element={<FieldDetail user={currentUser} setUser={setCurrentUser} />} />
+        <Route path="/checkout" element={<Checkout user={currentUser} setUser={setCurrentUser} />} />
+        <Route path="/ticket/:id" element={<Ticket user={currentUser} setUser={setCurrentUser} />} />
+        <Route path="/login" element={<Login user={currentUser} setUser={setCurrentUser} />} />
+        <Route path="/matchmaking" element={<Matchmaking user={currentUser} setUser={setCurrentUser} />} />
+        <Route path="/profile/*" element={<UserProfile user={currentUser} setUser={setCurrentUser} />} />
+        <Route path="/register-field" element={<RegisterField user={currentUser} setUser={setCurrentUser} />} />
 
         {/* 2. Luồng Của Chủ Sân (Field Owner Portal) */}
-        <Route path="/owner/*" element={<OwnerDashboard />} />
+        <Route path="/owner/*" element={<OwnerDashboard user={currentUser} setUser={setCurrentUser} />} />
 
         {/* 3. Luồng Quản Trị Hệ Thống (Super Admin Portal) */}
-        <Route path="/admin/*" element={<AdminDashboard />} />
+        <Route path="/admin/*" element={<AdminDashboard user={currentUser} setUser={setCurrentUser} />} />
       </Routes>
     </Router>
   );
