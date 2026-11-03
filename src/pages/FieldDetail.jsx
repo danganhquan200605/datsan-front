@@ -1,24 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { 
   MapPin, Calendar, Clock, ArrowLeft, ShieldCheck, Zap, Star, 
   Check, Phone, CheckCircle, Navigation, Coffee, Award, ChevronRight, Video, Sparkles, Car, Wifi, Info,
-  Tv, Heart, ExternalLink, Shield, RefreshCw, CheckCircle2, AlertCircle, Plus, Trash2
+  Tv, Heart, ExternalLink, Shield, RefreshCw, CheckCircle2, AlertCircle, Plus, Trash2, User, Users,
+  Search, Bell, LogIn, LogOut, Building2, PlusCircle, LayoutDashboard
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
-export default function FieldDetail({ sanId = 1, onBack }) {
+export default function FieldDetail({ sanId = 1, onBack, user, setUser }) {
+  const navigate = useNavigate();
+  const dropdownRef = useRef(null);
+
   const [sanInfo, setSanInfo] = useState(null);
   const [bookedSlotsFromDB, setBookedSlotsFromDB] = useState([]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
+  const [showDropdown, setShowDropdown] = useState(false);
+  
   // States tương tác bộ lọc ngày & phân loại sân
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedSubSan, setSelectedSubSan] = useState('Sân 5 người (Sân A1, A2, A3)');
-  
-  // STATE MỚI: Dùng mảng để chọn được nhiều khung giờ (cộng dồn giờ)
   const [selectedSlots, setSelectedSlots] = useState([]);
-
   // State các dịch vụ chọn thêm
   const [services, setServices] = useState({
     water: false,
@@ -26,6 +29,17 @@ export default function FieldDetail({ sanId = 1, onBack }) {
     referee: false,
     video: false
   });
+
+  // Đóng dropdown avatar khi click ra ngoài
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // TẠO ĐỘNG DANH SÁCH 17 KHUNG GIỜ (Mỗi ca 1 tiếng từ 6:00 đến 23:00)
   const MASTER_TIME_SLOTS = Array.from({ length: 17 }, (_, i) => {
@@ -36,28 +50,25 @@ export default function FieldDetail({ sanId = 1, onBack }) {
     let shift = 'morning';
     let basePrice = 200000;
     let isGold = false;
-
     if (startHour >= 12 && startHour < 16) {
-        shift = 'afternoon';
-        basePrice = 250000;
+      shift = 'afternoon';
+      basePrice = 250000;
     } else if (startHour >= 16) {
-        shift = 'evening';
-        basePrice = startHour >= 17 && startHour <= 20 ? 380000 : 320000;
-        if (startHour >= 17 && startHour <= 20) isGold = true;
+      shift = 'evening';
+      basePrice = startHour >= 17 && startHour <= 20 ? 380000 : 320000;
+      if (startHour >= 17 && startHour <= 20) isGold = true;
     }
-
     return { 
-        id: i + 1, 
-        start: startStr, 
-        end: endStr, 
-        basePrice, 
-        shift, 
-        isGold,
-        label: `${startStr} - ${endStr}` 
+      id: i + 1, 
+      start: startStr, 
+      end: endStr, 
+      basePrice, 
+      shift, 
+      isGold,
+      label: `${startStr} - ${endStr}` 
     };
   });
 
-  // Ghi nhớ sanId vào localStorage để F5 không bị mất trang
   useEffect(() => {
     sessionStorage.setItem('activeSanId', sanId);
     async function loadSanBaseInfo() {
@@ -71,14 +82,14 @@ export default function FieldDetail({ sanId = 1, onBack }) {
           const ls = lsData?.find((l) => (l.maloaisan || l.MaLoaiSan) === (sanData.maloaisan || sanData.MaLoaiSan)) || {};
           setSanInfo({
             MaSan: sanData.masan || sanData.MaSan,
-            TenSan: sanData.tensan || sanData.TenSan || 'Sân Bóng Đá Cỏ Nhân Tạo Tuyên Sơn',
-            MoTa: sanData.mota || sanData.MoTa || 'Sân cỏ nhân tạo tiêu chuẩn thi đấu FIFA 2026, trang bị hệ thống chiếu sáng LED chống chói 1000W hiện đại, bãi đỗ xe rộng rãi.',
+            TenSan: sanData.tensan || sanData.TenSan || 'Sân Bóng Đá Cỏ Nhân Tạo Thanh Khê',
+            MoTa: sanData.mota || sanData.MoTa || 'Sân cỏ nhân tạo tiêu chuẩn thi đấu FIFA 2026, trang bị hệ thống chiếu sáng LED chống chói 1000W hiện đại.',
             GiaSan: sanData.giasan || sanData.GiaSan || 380000,
             LoaiSanText: ls.tenloaisan || ls.TenLoaiSan || 'Bóng đá Sân 7',
             ViTri: {
-              DiaChi: vt.diachi || vt.DiaChi || 'Số 02 Đường 2/9',
-              Phuong: vt.phuong || vt.Phuong || 'Hòa Cường Bắc',
-              Quan: vt.quan || vt.Quan || 'Hải Châu',
+              DiaChi: vt.diachi || vt.DiaChi || '100 Điện Biên Phủ',
+              Phuong: vt.phuong || vt.Phuong || 'Chính Gián',
+              Quan: vt.quan || vt.Quan || 'Thanh Khê',
               ThanhPho: vt.thanhpho || vt.ThanhPho || 'Đà Nẵng'
             },
             Rating: 4.9,
@@ -110,7 +121,6 @@ export default function FieldDetail({ sanId = 1, onBack }) {
 
   useEffect(() => {
     fetchBookedSlots();
-    // Bỏ chọn các slot hiện tại khi đổi ngày đá
     setSelectedSlots([]);
     const channel = supabase
       .channel('detail-realtime-sub')
@@ -141,7 +151,6 @@ export default function FieldDetail({ sanId = 1, onBack }) {
 
   const currentDynamicSlots = getCalculatedSlots();
 
-  // Hàm Toggle thêm/bớt ca giờ
   const handleToggleSlot = (slot) => {
     const isExist = selectedSlots.some(s => s.id === slot.id);
     if (isExist) {
@@ -151,7 +160,6 @@ export default function FieldDetail({ sanId = 1, onBack }) {
     }
   };
 
-  // TÍNH TỔNG TIỀN ĐẶT SÂN
   const totalPitchPrice = selectedSlots.reduce((sum, item) => sum + item.price, 0);
   const priceWater = services.water ? 80000 : 0;
   const priceBibs = services.bibs ? 50000 : 0;
@@ -160,13 +168,15 @@ export default function FieldDetail({ sanId = 1, onBack }) {
   const discountAmount = selectedSlots.length > 0 ? 50000 : 0;
   const totalPrice = totalPitchPrice + priceWater + priceBibs + priceReferee + priceVideo - discountAmount;
 
+  const currentUser = user || JSON.parse(sessionStorage.getItem('datsan_user'));
+  const displayName = currentUser?.HoTen || currentUser?.hoten || 'Khách Hàng (Chưa Đăng Nhập)';
+  const userRole = currentUser?.VaiTro || currentUser?.vaitro || 'KHACHHANG';
+
   const handleConfirmBooking = async () => {
     if (selectedSlots.length === 0) return;
     
-    // Lấy thông tin user (để lấy mã Khách hàng), mặc định 4 nếu chưa đăng nhập
-    const localUser = JSON.parse(sessionStorage.getItem('datsan_user'));
-    const maKH = localUser ? localUser.MaNguoiDung : 4; 
-
+    const localUser = currentUser;
+    const maKH = localUser ? (localUser.MaNguoiDung || localUser.manguoidung) : 4; 
     try {
       setIsSubmitting(true);
       const { data: newBooking, error: bErr } = await supabase.from('datsan').insert([
@@ -179,9 +189,7 @@ export default function FieldDetail({ sanId = 1, onBack }) {
         }
       ]).select().single();
       if (bErr) throw bErr;
-
       if (newBooking) {
-        // Lưu toàn bộ các khung giờ đã chọn vào bảng datsan_khunggio
         const itemsToInsert = selectedSlots.map(slot => ({
           madatsan: newBooking.madatsan || newBooking.MaDatSan,
           makhunggio: slot.id,
@@ -189,9 +197,8 @@ export default function FieldDetail({ sanId = 1, onBack }) {
         }));
         await supabase.from('datsan_khunggio').insert(itemsToInsert);
       }
-
-      alert('Tạo đơn đặt sân thành công!'); // Thay thế màn hình block cũ
-      setSelectedSlots([]); // Reset bảng để người dùng bấm đặt tiếp sân khác ngay lập tức
+      alert('Tạo đơn đặt sân thành công!');
+      setSelectedSlots([]);
       setServices({ water: false, bibs: false, referee: false, video: false });
       fetchBookedSlots();
     } catch (e) {
@@ -212,6 +219,7 @@ export default function FieldDetail({ sanId = 1, onBack }) {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans antialiased pb-20">
+      
       {/* TOP ANNOUNCEMENT BAR */}
       <div className="bg-[#046c4e] text-emerald-100 text-xs py-1.5 px-6 border-b border-emerald-700/50">
         <div className="max-w-[1440px] mx-auto flex items-center justify-between">
@@ -229,46 +237,190 @@ export default function FieldDetail({ sanId = 1, onBack }) {
           </div>
         </div>
       </div>
-      {/* HEADER NAVIGATION */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-[1440px] mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={() => {
-                sessionStorage.removeItem('activeSanId');
-                onBack();
-              }} 
-              className="p-2 hover:bg-slate-100 rounded-xl transition text-slate-600 flex items-center gap-1.5 text-xs font-bold"
+
+      {/* HEADER */}
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm font-sans">
+        <div className="max-w-[1440px] mx-auto px-6 h-20 flex items-center justify-between gap-6">
+          
+          {/* LOGO & ĐỊA ĐIỂM (BẤM VÀO LUÔN TRỞ VỀ TRANG CHỦ) */}
+          <div className="flex items-center gap-5">
+            <Link 
+              to="/" 
+              onClick={() => { if (typeof onBack === 'function') onBack(); }} 
+              className="flex items-center gap-2.5 cursor-pointer"
             >
-              <ArrowLeft className="w-4 h-4" /> Quay lại trang chủ
-            </button>
-            <div className="h-4 w-px bg-slate-200"></div>
-            <a href="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white font-bold flex items-center justify-center text-sm shadow">DS</div>
-              <span className="text-xl font-black text-emerald-600">DatSanOnline</span>
-            </a>
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-emerald-500 flex items-center justify-center text-white shadow-md font-bold text-lg">
+                DS
+              </div>
+              <div className="flex flex-col">
+                <span className="text-2xl font-black tracking-tight text-emerald-600 leading-none">
+                  DatSan<span className="text-amber-500">Online</span>
+                </span>
+                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 mt-0.5">
+                  Hệ Sinh Thái Sân Cỏ VN
+                </span>
+              </div>
+            </Link>
+            <div className="relative hidden sm:block">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-xs font-semibold text-slate-700">
+                <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+                <span>TP. Đà Nẵng</span>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center gap-6 text-xs font-bold text-slate-600">
-            <span className="text-emerald-600">Trang Chủ</span>
-            <span>Tìm Sân Nhanh</span>
-            <span>Bảng Giá & Khung Giờ</span>
-            <span>Tìm Đối Giao Lưu</span>
+          
+          {/* SEARCH BAR */}
+          <div className="flex-1 max-w-xl hidden md:block">
+            <div className="relative flex items-center">
+              <input
+                type="text"
+                placeholder="Tìm theo tên sân, địa chỉ..."
+                className="w-full h-11 pl-11 pr-4 rounded-full bg-slate-50 border border-slate-200 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition font-medium"
+              />
+              <Search className="w-4 h-4 text-slate-400 absolute left-4" />
+            </div>
+          </div>
+
+          {/* AVATAR / ĐĂNG NHẬP (HỖ TRỢ DROPDOWN ADMIN / CHỦ SÂN / KHÁCH HÀNG) */}
+          <div className="flex items-center gap-4">
+            {currentUser ? (
+              <div className="flex items-center gap-3">
+                {userRole === 'CHUSAN' && (
+                  <button onClick={() => navigate('/owner')} className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition">
+                    <Shield className="w-4 h-4" /> Quản Lý Sân
+                  </button>
+                )}
+
+                {userRole === 'ADMIN' && (
+                  <button onClick={() => navigate('/admin')} className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition">
+                    <LayoutDashboard className="w-4 h-4" /> Trang Admin
+                  </button>
+                )}
+
+                {/* Chuông thông báo */}
+                <button className="p-2 text-slate-500 hover:bg-slate-100 rounded-full transition relative">
+                  <Bell className="w-5 h-5" />
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full"></span>
+                </button>
+                
+                <div className="relative" ref={dropdownRef}>
+                  <button 
+                    onClick={() => setShowDropdown(!showDropdown)}
+                    className="flex items-center gap-2.5 p-1 rounded-xl hover:bg-slate-50 transition cursor-pointer border border-transparent hover:border-slate-200"
+                  >
+                    <div className="w-9 h-9 rounded-full bg-emerald-700 text-white font-bold flex items-center justify-center text-xs shadow-sm">
+                      {displayName.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="hidden xl:block text-left text-xs leading-tight">
+                      <div className="font-bold text-slate-800">{displayName}</div>
+                      <div className="text-[10px] text-emerald-600 font-medium font-mono uppercase">{userRole}</div>
+                    </div>
+                  </button>
+
+                  {/* MENU DROPDOWN ĐẦY ĐỦ THEO VAI TRÒ (BAO GỒM ADMIN) */}
+                  {showDropdown && (
+                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 animate-in fade-in zoom-in-95 duration-100">
+                      <button 
+                        onClick={() => {
+                          setShowDropdown(false);
+                          navigate('/profile');
+                        }}
+                        className="w-full px-4 py-2.5 text-xs text-slate-700 hover:bg-slate-50 font-semibold flex items-center gap-2.5 transition text-left"
+                      >
+                        <User className="w-4 h-4 text-emerald-600" />
+                        <span>Thông tin cá nhân</span>
+                      </button>
+
+                      {userRole === 'CHUSAN' && (
+                        <button 
+                          onClick={() => {
+                            setShowDropdown(false);
+                            navigate('/owner');
+                          }}
+                          className="w-full px-4 py-2.5 text-xs text-slate-700 hover:bg-slate-50 font-semibold flex items-center gap-2.5 transition text-left"
+                        >
+                          <Building2 className="w-4 h-4 text-amber-500" />
+                          <span>Bảng quản lý sân</span>
+                        </button>
+                      )}
+
+                      {userRole === 'ADMIN' && (
+                        <button 
+                          onClick={() => {
+                            setShowDropdown(false);
+                            navigate('/admin');
+                          }}
+                          className="w-full px-4 py-2.5 text-xs text-slate-700 hover:bg-slate-50 font-semibold flex items-center gap-2.5 transition text-left"
+                        >
+                          <LayoutDashboard className="w-4 h-4 text-purple-600" />
+                          <span>Trang quản trị Admin</span>
+                        </button>
+                      )}
+
+                      <div className="border-t border-slate-100 my-1"></div>
+
+                      <button 
+                        onClick={() => {
+                          setShowDropdown(false);
+                          sessionStorage.removeItem('datsan_user');
+                          if (typeof setUser === 'function') setUser(null);
+                          navigate('/login');
+                        }} 
+                        className="w-full px-4 py-2.5 text-xs text-red-600 hover:bg-red-50 font-bold flex items-center gap-2.5 transition text-left"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        <span>Đăng xuất</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <button 
+                onClick={() => navigate('/login')} 
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold shadow-sm transition"
+              >
+                <LogIn className="w-4 h-4" /> Đăng nhập
+              </button>
+            )}
+          </div>
+        </div>
+        
+        {/* SUB NAV TỐI GIẢN (ĐÃ XÓA NÚT TÌM ĐỐI) */}
+        <div className="border-t border-slate-100 bg-white">
+          <div className="max-w-[1440px] mx-auto px-6 h-10 flex items-center justify-between text-xs font-semibold">
+            <div className="flex items-center gap-2 text-slate-500 font-medium">
+              <span>Hệ thống đặt sân bóng đá trực tuyến hàng đầu</span>
+            </div>
+            <div className="flex items-center gap-2 text-emerald-700 font-semibold">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+              Realtime Supabase Sync
+            </div>
           </div>
         </div>
       </header>
+
       {/* BREADCRUMBS & TIÊU ĐỀ SÂN */}
       <main className="max-w-[1440px] mx-auto px-6 pt-6">
-        <div className="text-xs text-slate-400 flex items-center gap-2 mb-4">
-          <span>Trang Chủ</span> <ChevronRight className="w-3 h-3" />
-          <span>Đà Nẵng</span> <ChevronRight className="w-3 h-3" />
-          <span>Quận {sanInfo?.ViTri.Quan}</span> <ChevronRight className="w-3 h-3" />
-          <span className="text-slate-700 font-bold">{sanInfo?.TenSan}</span>
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-xs text-slate-400 flex items-center gap-2">
+            <button onClick={onBack || (() => navigate('/'))} className="hover:text-emerald-600 font-bold flex items-center gap-1">
+              <ArrowLeft className="w-3.5 h-3.5" /> Trang Chủ
+            </button> 
+            <ChevronRight className="w-3 h-3" />
+            <span>Đà Nẵng</span> <ChevronRight className="w-3 h-3" />
+            <span>Quận {sanInfo?.ViTri.Quan}</span> <ChevronRight className="w-3 h-3" />
+            <span className="text-slate-700 font-bold">{sanInfo?.TenSan}</span>
+          </div>
         </div>
+
         {/* BADGES NỔI BẬT */}
         <div className="flex flex-wrap items-center gap-2 mb-2">
           <span className="px-2.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-extrabold uppercase">CỎ MỚI 2026</span>
           <span className="px-2.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-extrabold uppercase">CHUẨN FIFA</span>
-          <span className="px-2.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-extrabold uppercase flex items-center gap-1"><Video className="w-3 h-3" /> CÓ CAMERA QUAY TRẬN ĐẤU</span>
+          <span className="px-2.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-extrabold uppercase flex items-center gap-1">
+            <Video className="w-3 h-3" /> CÓ CAMERA QUAY TRẬN ĐẤU
+          </span>
           <span className="px-2.5 py-0.5 rounded bg-purple-100 text-purple-800 text-[10px] font-extrabold uppercase">ĐƯỢC ĐẶT NHIỀU NHẤT TUẦN</span>
         </div>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
@@ -281,7 +433,9 @@ export default function FieldDetail({ sanId = 1, onBack }) {
               <span>•</span>
               <span className="text-emerald-700 font-bold">Đã phục vụ hơn 3.200+ trận đấu</span>
               <span>•</span>
-              <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-slate-400" /> {sanInfo?.ViTri.DiaChi}, P. {sanInfo?.ViTri.Phuong}, Q. {sanInfo?.ViTri.Quan}, TP. Đà Nẵng</span>
+              <span className="flex items-center gap-1">
+                <MapPin className="w-3.5 h-3.5 text-slate-400" /> {sanInfo?.ViTri.DiaChi}, P. {sanInfo?.ViTri.Phuong}, Q. {sanInfo?.ViTri.Quan}, TP. Đà Nẵng
+              </span>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -293,10 +447,13 @@ export default function FieldDetail({ sanId = 1, onBack }) {
             </button>
           </div>
         </div>
+
         {/* LAYOUT GRID 12 CỘT */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          
           {/* CỘT TRÁI (8 CỘT) */}
           <div className="lg:col-span-8 space-y-8">
+            
             {/* THƯ VIỆN ẢNH GALLERY GRID */}
             <div className="grid grid-cols-3 gap-3">
               <div className="col-span-2 relative h-[380px] rounded-2xl overflow-hidden shadow-sm bg-slate-100">
@@ -320,6 +477,7 @@ export default function FieldDetail({ sanId = 1, onBack }) {
                 </div>
               </div>
             </div>
+
             {/* TIỆN ÍCH TIÊU CHUẨN SÂN BÃI */}
             <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
               <h3 className="font-extrabold text-base text-slate-900 mb-4 flex items-center gap-2">
@@ -340,7 +498,8 @@ export default function FieldDetail({ sanId = 1, onBack }) {
                 </div>
               </div>
             </div>
-            {/* BẢNG CHỌN NGÀY & KHUNG GIỜ TỰ ĐỘNG CHẠY NGẦM */}
+
+            {/* BẢNG CHỌN NGÀY & KHUNG GIỜ */}
             <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
               <div className="flex justify-between items-center mb-4">
                 <div>
@@ -356,12 +515,12 @@ export default function FieldDetail({ sanId = 1, onBack }) {
                 <div className="text-xs font-bold uppercase text-slate-400 mb-2">BƯỚC 1: CHỌN NGÀY ĐÁ</div>
                 <div className="grid grid-cols-6 gap-2">
                   {[
-                    { day: 'HÔM NAY', date: '30/10', full: '2026-10-30', label: 'Thứ Sáu' },
-                    { day: 'NGÀY MAI', date: '31/10', full: '2026-10-31', label: 'Thứ Bảy' },
-                    { day: 'NGÀY KỊA', date: '01/11', full: '2026-11-01', label: 'Chủ Nhật' },
-                    { day: 'THỨ HAI', date: '02/11', full: '2026-11-02', label: 'Thứ Hai' },
-                    { day: 'THỨ BA', date: '03/11', full: '2026-11-03', label: 'Thứ Ba' },
-                    { day: 'THỨ TƯ', date: '04/11', full: '2026-11-04', label: 'Thứ Tư' }
+                    { day: 'HÔM NAY', date: '03/11', full: '2026-11-03', label: 'Thứ Ba' },
+                    { day: 'NGÀY MAI', date: '04/11', full: '2026-11-04', label: 'Thứ Tư' },
+                    { day: 'NGÀY KỊA', date: '05/11', full: '2026-11-05', label: 'Thứ Năm' },
+                    { day: 'THỨ SÁU', date: '06/11', full: '2026-11-06', label: 'Thứ Sáu' },
+                    { day: 'THỨ BẢY', date: '07/11', full: '2026-11-07', label: 'Thứ Bảy' },
+                    { day: 'CHỦ NHẬT', date: '08/11', full: '2026-11-08', label: 'Chủ Nhật' }
                   ].map((d) => (
                     <button
                       key={d.full}
@@ -439,7 +598,7 @@ export default function FieldDetail({ sanId = 1, onBack }) {
                 })}
               </div>
             </div>
-            {/* DỊCH VỤ CỘNG THÊM PHỤC VỤ TRẬN ĐẤU */}
+            {/* DỊCH VỤ CỘNG THÊM */}
             <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
               <h3 className="font-extrabold text-base text-slate-900 mb-1">Dịch Vụ Cộng Thêm Phục Vụ Trận Đấu (Tùy chọn)</h3>
               <p className="text-xs text-slate-400 mb-4">Chọn thêm dịch vụ đi kèm khi chọn được khung giờ đá.</p>
@@ -478,97 +637,131 @@ export default function FieldDetail({ sanId = 1, onBack }) {
             </div>
           </div>
           
-          {/* CỘT PHẢI (4 CỘT STICKY) - CHỈ HIỂN THỊ TÍNH TIỀN KHI ĐÃ CHỌN KHUNG GIỜ */}
+          {/* CỘT PHẢI (4 CỘT STICKY) */}
           <div className="lg:col-span-4">
-            <div className="sticky top-24 bg-white rounded-2xl border border-slate-200 shadow-xl p-6">
-              
-              {selectedSlots.length > 0 ? (
-                <>
-                  <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
-                    <span className="text-xs font-bold text-amber-600 flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5" /> Đang giữ chỗ: {selectedSlots.length} tiếng
-                    </span>
-                    <button onClick={() => setSelectedSlots([])} className="text-[10px] text-red-500 font-bold hover:underline">Hủy tất cả</button>
+            <div className="sticky top-24 space-y-4">
+              {/* Ô BADGE NHẬN DIỆN TÀI KHOẢN ĐANG ĐĂNG NHẬP HOẶC GUEST */}
+              <div className="bg-slate-900 text-white rounded-2xl p-4 border border-slate-800 shadow-md">
+                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block mb-1.5">
+                  TÀI KHOẢN THỰC HIỆN THAO TÁC:
+                </span>
+                
+                {currentUser ? (
+                  <div className="flex items-center justify-between bg-slate-800/80 p-2.5 rounded-xl border border-slate-700">
+                    <div className="flex items-center gap-2.5 overflow-hidden">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-500 text-slate-950 font-black flex items-center justify-center text-xs shrink-0">
+                        {displayName.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="truncate">
+                        <div className="font-extrabold text-xs text-white truncate">{displayName}</div>
+                        <div className="text-[10px] text-emerald-400 font-mono font-bold">{userRole}</div>
+                      </div>
+                    </div>
                   </div>
-                  <h3 className="font-black text-base text-slate-900 mb-4">Chi Tiết Đặt Sân</h3>
-                  <div className="space-y-3 text-xs border-b border-slate-100 pb-4 mb-4">
-                    <div className="flex justify-between items-start">
-                      <span className="text-slate-500">Sân thi đấu:</span>
-                      <span className="font-extrabold text-slate-900 text-right">{selectedSubSan}<br /><span className="text-[10px] font-normal text-slate-400">{sanInfo?.TenSan}</span></span>
+                ) : (
+                  <div className="flex items-center justify-between bg-slate-800/80 p-2.5 rounded-xl border border-slate-700">
+                    <span className="text-xs font-bold text-slate-300">Trạng thái: Khách (Guest)</span>
+                    <button 
+                      onClick={() => navigate('/login')}
+                      className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-[11px] font-black rounded-lg transition"
+                    >
+                      Đăng nhập
+                    </button>
+                  </div>
+                )}
+              </div>
+              {/* TÍNH TIỀN KHI ĐÃ CHỌN KHUNG GIỜ */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-xl p-6">
+                {selectedSlots.length > 0 ? (
+                  <>
+                    <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
+                      <span className="text-xs font-bold text-amber-600 flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5" /> Đang giữ chỗ: {selectedSlots.length} tiếng
+                      </span>
+                      <button onClick={() => setSelectedSlots([])} className="text-[10px] text-red-500 font-bold hover:underline">Hủy tất cả</button>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Ngày sử dụng:</span>
-                      <span className="font-extrabold text-slate-900">{selectedDate}</span>
-                    </div>
-                    
-                    {/* Danh sách các ca đã chọn */}
-                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-2 mt-2">
+                    <h3 className="font-black text-base text-slate-900 mb-4">Chi Tiết Đặt Sân</h3>
+                    <div className="space-y-3 text-xs border-b border-slate-100 pb-4 mb-4">
+                      <div className="flex justify-between items-start">
+                        <span className="text-slate-500">Sân thi đấu:</span>
+                        <span className="font-extrabold text-slate-900 text-right">{selectedSubSan}<br /><span className="text-[10px] font-normal text-slate-400">{sanInfo?.TenSan}</span></span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Ngày sử dụng:</span>
+                        <span className="font-extrabold text-slate-900">{selectedDate}</span>
+                      </div>
+                      
+                      <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-2 mt-2">
                         <div className="font-bold text-slate-500 mb-1 border-b pb-1">Các ca đã chọn ({selectedSlots.length}):</div>
                         {selectedSlots.map(slot => (
-                            <div key={slot.id} className="flex justify-between text-[11px]">
-                                <span className="font-bold text-slate-700">{slot.label}</span>
-                                <span className="font-extrabold text-emerald-700">{slot.price.toLocaleString('vi-VN')} đ</span>
-                            </div>
+                          <div key={slot.id} className="flex justify-between text-[11px]">
+                            <span className="font-bold text-slate-700">{slot.label}</span>
+                            <span className="font-extrabold text-emerald-700">{slot.price.toLocaleString('vi-VN')} đ</span>
+                          </div>
                         ))}
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2 text-xs border-b border-slate-100 pb-4 mb-4">
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Tổng tiền thuê sân:</span>
-                      <span className="font-extrabold">{totalPitchPrice.toLocaleString('vi-VN')} đ</span>
-                    </div>
-                    {services.water && (
-                      <div className="flex justify-between text-slate-600">
-                        <span>Thùng nước uống 24 chai:</span>
-                        <span className="font-bold">+80.000 đ</span>
                       </div>
-                    )}
-                    {services.bibs && (
-                      <div className="flex justify-between text-slate-600">
-                        <span>Thuê 2 bộ áo bib:</span>
-                        <span className="font-bold">+50.000 đ</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between text-emerald-700 font-bold">
-                      <span>🏷️ Mã giảm giá (SANVIP50):</span>
-                      <span>-50.000 đ</span>
                     </div>
-                  </div>
-                  <div className="flex justify-between items-center mb-6">
+                    
+                    <div className="space-y-2 text-xs border-b border-slate-100 pb-4 mb-4">
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Tổng tiền thuê sân:</span>
+                        <span className="font-extrabold">{totalPitchPrice.toLocaleString('vi-VN')} đ</span>
+                      </div>
+                      {services.water && (
+                        <div className="flex justify-between text-slate-600">
+                          <span>Thùng nước uống 24 chai:</span>
+                          <span className="font-bold">+80.000 đ</span>
+                        </div>
+                      )}
+                      {services.bibs && (
+                        <div className="flex justify-between text-slate-600">
+                          <span>Thuê 2 bộ áo bib:</span>
+                          <span className="font-bold">+50.000 đ</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-emerald-700 font-bold">
+                        <span>🏷️ Mã giảm giá (SANVIP50):</span>
+                        <span>-50.000 đ</span>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center mb-6">
+                      <div>
+                        <div className="text-[11px] text-slate-400 uppercase font-bold">TỔNG TIỀN THANH TOÁN</div>
+                        <div className="text-[10px] text-emerald-600 font-semibold">Đã bao gồm VAT & Dịch vụ</div>
+                      </div>
+                      <div className="text-2xl font-black text-amber-500">
+                        {totalPrice.toLocaleString('vi-VN')} đ
+                      </div>
+                    </div>
+                    
+                    <div className="mb-4">
+                      <button 
+                        disabled={isSubmitting}
+                        onClick={handleConfirmBooking}
+                        className="w-full py-4 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-black text-sm rounded-xl shadow-lg shadow-amber-500/30 transition flex items-center justify-center gap-2"
+                      >
+                        {isSubmitting ? 'ĐANG LƯU CSDL...' : 'XÁC NHẬN ĐẶT SÂN & GIỮ CHỖ'} <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="py-8 text-center space-y-3">
+                    <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 mx-auto flex items-center justify-center">
+                      <AlertCircle className="w-5 h-5" />
+                    </div>
                     <div>
-                      <div className="text-[11px] text-slate-400 uppercase font-bold">TỔNG TIỀN THANH TOÁN</div>
-                      <div className="text-[10px] text-emerald-600 font-semibold">Đã bao gồm VAT & Dịch vụ</div>
-                    </div>
-                    <div className="text-2xl font-black text-amber-500">
-                      {totalPrice.toLocaleString('vi-VN')} đ
+                      <h4 className="font-bold text-slate-800 text-sm">Chưa Chọn Khung Giờ</h4>
+                      <p className="text-xs text-slate-400 mt-1">Vui lòng bấm chọn các ca 1 tiếng bên trái để cộng dồn giờ đá.</p>
                     </div>
                   </div>
-                  <button 
-                    disabled={isSubmitting}
-                    onClick={handleConfirmBooking}
-                    className="w-full py-4 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-black text-sm rounded-xl shadow-lg shadow-amber-500/30 transition flex items-center justify-center gap-2 mb-4"
-                  >
-                    {isSubmitting ? 'ĐANG LƯU CSDL...' : 'XÁC NHẬN ĐẶT SÂN & GIỮ CHỖ'} <ChevronRight className="w-4 h-4" />
-                  </button>
-                </>
-              ) : (
-                <div className="py-12 text-center space-y-3">
-                  <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 mx-auto flex items-center justify-center">
-                    <AlertCircle className="w-6 h-6" />
+                )}
+                <div className="text-[11px] text-slate-400 space-y-1.5 bg-slate-50 p-3 rounded-xl border border-slate-100 mt-4">
+                  <div className="flex items-center gap-1.5 text-slate-600 font-semibold">
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> Hoàn tiền 100% nếu hủy trước 24h
                   </div>
-                  <div>
-                    <h4 className="font-bold text-slate-800 text-sm">Chưa Chọn Khung Giờ</h4>
-                    <p className="text-xs text-slate-400 mt-1">Vui lòng bấm chọn các ca 1 tiếng bên trái để cộng dồn giờ đá.</p>
+                  <div className="flex items-center gap-1.5 text-slate-600 font-semibold">
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> Đồng bộ CSDL Supabase Realtime
                   </div>
-                </div>
-              )}
-              <div className="text-[11px] text-slate-400 space-y-1.5 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                <div className="flex items-center gap-1.5 text-slate-600 font-semibold">
-                  <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> Hoàn tiền 100% nếu hủy trước 24h
-                </div>
-                <div className="flex items-center gap-1.5 text-slate-600 font-semibold">
-                  <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> Đồng bộ CSDL Supabase Realtime
                 </div>
               </div>
             </div>
