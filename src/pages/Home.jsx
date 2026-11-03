@@ -26,10 +26,10 @@ export default function Home() {
   // Duy trì phiên đăng nhập chuẩn SPA
   const [currentUser, setCurrentUser] = useState(() => {
     try {
-      const savedUser = localStorage.getItem('datsan_user');
+      const savedUser = sessionStorage.getItem('datsan_user');
       return savedUser ? JSON.parse(savedUser) : null;
     } catch (error) {
-      console.error('Lỗi đọc localStorage:', error);
+      console.error('Lỗi đọc sessionStorage:', error);
       return null;
     }
   });
@@ -68,7 +68,7 @@ export default function Home() {
 
   // Kiểm tra thời gian khóa Admin
   useEffect(() => {
-    const lockTime = localStorage.getItem('admin_lock_until');
+    const lockTime = sessionStorage.getItem('admin_lock_until');
     if (lockTime && new Date().getTime() < Number(lockTime)) {
       setAdminLockUntil(Number(lockTime));
     }
@@ -261,14 +261,14 @@ export default function Home() {
 
     if (adminPassword === validPassword || adminPassword === 'admin123') {
       setAdminFailedAttempts(0);
-      localStorage.removeItem('admin_lock_until');
+      sessionStorage.removeItem('admin_lock_until');
       completeLogin(tempUser);
     } else {
       const newAttempts = adminFailedAttempts + 1;
       setAdminFailedAttempts(newAttempts);
       if (newAttempts >= 3) {
         const lockTime = new Date().getTime() + 5 * 60 * 1000; // Khóa 5 phút
-        localStorage.setItem('admin_lock_until', lockTime.toString());
+        sessionStorage.setItem('admin_lock_until', lockTime.toString());
         setAdminLockUntil(lockTime);
         alert("Bạn đã nhập sai mật khẩu 3 lần. Tạm khóa đăng nhập Admin trong 5 phút!");
         setShowLoginModal(false);
@@ -281,7 +281,7 @@ export default function Home() {
 
   const completeLogin = (userObj) => {
     setCurrentUser(userObj);
-    localStorage.setItem('datsan_user', JSON.stringify(userObj));
+    sessionStorage.setItem('datsan_user', JSON.stringify(userObj));
     setShowLoginModal(false);
     resetAuthForm();
   };
@@ -312,7 +312,7 @@ export default function Home() {
       // 2. Cập nhật State & LocalStorage người dùng ngay lập tức
       const updatedUser = { ...currentUser, VaiTro: 'CHUSAN' };
       setCurrentUser(updatedUser);
-      localStorage.setItem('datsan_user', JSON.stringify(updatedUser));
+      sessionStorage.setItem('datsan_user', JSON.stringify(updatedUser));
 
       alert('Đăng ký làm Chủ Sân thành công! Quyền hạn của bạn đã được nâng cấp.');
       setShowRegPitchModal(false);
