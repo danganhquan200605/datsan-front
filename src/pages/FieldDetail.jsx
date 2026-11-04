@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useParams } from 'react-router-dom';
 import { 
   MapPin, Calendar, Clock, ArrowLeft, ShieldCheck, Zap, Star, 
   Check, Phone, CheckCircle, Navigation, Coffee, Award, ChevronRight, Video, Sparkles, Car, Wifi, Info,
@@ -8,29 +8,31 @@ import {
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
-export default function FieldDetail({ sanId = 1, onBack, user, setUser }) {
+export default function FieldDetail({ sanId: propSanId, onBack, user, setUser }) {
   const navigate = useNavigate();
-  const dropdownRef = useRef(null);
+  const { id: urlSanId } = useParams();
+  
+  const currentSanId = Number(urlSanId || propSanId || sessionStorage.getItem('activeSanId') || 1);
 
+  const dropdownRef = useRef(null);
   const [sanInfo, setSanInfo] = useState(null);
   const [bookedSlotsFromDB, setBookedSlotsFromDB] = useState([]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   
-  // States tương tác bộ lọc ngày & phân loại sân
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [selectedSubSan, setSelectedSubSan] = useState('Sân 5 người (Sân A1, A2, A3)');
   const [selectedSlots, setSelectedSlots] = useState([]);
-  // State các dịch vụ chọn thêm
+  
+  // States các dịch vụ cộng thêm
   const [services, setServices] = useState({
     water: false,
     bibs: false,
-    referee: false,
-    video: false
+    racketBadminton: false,
+    shuttlecock: false,
+    racketTennis: false
   });
 
-  // Đóng dropdown avatar khi click ra ngoài
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -41,7 +43,6 @@ export default function FieldDetail({ sanId = 1, onBack, user, setUser }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // TẠO ĐỘNG DANH SÁCH 17 KHUNG GIỜ (Mỗi ca 1 tiếng từ 6:00 đến 23:00)
   const MASTER_TIME_SLOTS = Array.from({ length: 17 }, (_, i) => {
     const startHour = i + 6;
     const endHour = startHour + 1;
@@ -70,26 +71,34 @@ export default function FieldDetail({ sanId = 1, onBack, user, setUser }) {
   });
 
   useEffect(() => {
-    sessionStorage.setItem('activeSanId', sanId);
+    if (currentSanId) sessionStorage.setItem('activeSanId', currentSanId);
+    
     async function loadSanBaseInfo() {
       try {
         setInitialLoading(true);
-        const { data: sanData } = await supabase.from('san').select('*').eq('masan', sanId).single();
+        const { data: sanData } = await supabase
+          .from('san')
+          .select('*')
+          .eq('masan', currentSanId)
+          .single();
+          
         const { data: vtData } = await supabase.from('vitri').select('*');
         const { data: lsData } = await supabase.from('loaisan').select('*');
+
         if (sanData) {
-          const vt = vtData?.find((v) => (v.mavitri || v.MaViTri) === (sanData.mavitri || sanData.MaViTri)) || {};
-          const ls = lsData?.find((l) => (l.maloaisan || l.MaLoaiSan) === (sanData.maloaisan || sanData.MaLoaiSan)) || {};
+          const vt = vtData?.find((v) => Number(v.mavitri || v.MaViTri) === Number(sanData.mavitri || sanData.MaViTri)) || {};
+          const ls = lsData?.find((l) => Number(l.maloaisan || l.MaLoaiSan) === Number(sanData.maloaisan || sanData.MaLoaiSan)) || {};
+          
           setSanInfo({
             MaSan: sanData.masan || sanData.MaSan,
-            TenSan: sanData.tensan || sanData.TenSan || 'Sân Bóng Đá Cỏ Nhân Tạo Thanh Khê',
-            MoTa: sanData.mota || sanData.MoTa || 'Sân cỏ nhân tạo tiêu chuẩn thi đấu FIFA 2026, trang bị hệ thống chiếu sáng LED chống chói 1000W hiện đại.',
-            GiaSan: sanData.giasan || sanData.GiaSan || 380000,
-            LoaiSanText: ls.tenloaisan || ls.TenLoaiSan || 'Bóng đá Sân 7',
+            TenSan: sanData.tensan || sanData.TenSan,
+            MoTa: sanData.mota || sanData.MoTa || 'Sân thể thao chất lượng cao.',
+            GiaSan: sanData.giasan || sanData.GiaSan || 200000,
+            LoaiSanText: ls.tenloaisan || ls.TenLoaiSan || 'Sân Thể Thao',
             ViTri: {
-              DiaChi: vt.diachi || vt.DiaChi || '100 Điện Biên Phủ',
-              Phuong: vt.phuong || vt.Phuong || 'Chính Gián',
-              Quan: vt.quan || vt.Quan || 'Thanh Khê',
+              DiaChi: vt.diachi || vt.DiaChi || 'Chưa cập nhật địa chỉ',
+              Phuong: vt.phuong || vt.Phuong || '',
+              Quan: vt.quan || vt.Quan || 'Đà Nẵng',
               ThanhPho: vt.thanhpho || vt.ThanhPho || 'Đà Nẵng'
             },
             Rating: 4.9,
@@ -104,14 +113,14 @@ export default function FieldDetail({ sanId = 1, onBack, user, setUser }) {
       }
     }
     loadSanBaseInfo();
-  }, [sanId]);
+  }, [currentSanId]);
 
   const fetchBookedSlots = async () => {
     try {
       const { data: datSanData } = await supabase
         .from('datsan')
         .select('madatsan, masan, ngaysudung, trangthai, datsan_khunggio(makhunggio)')
-        .eq('masan', sanId)
+        .eq('masan', currentSanId)
         .eq('ngaysudung', selectedDate);
       setBookedSlotsFromDB(datSanData || []);
     } catch (err) {
@@ -129,22 +138,18 @@ export default function FieldDetail({ sanId = 1, onBack, user, setUser }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [sanId, selectedDate]);
+  }, [currentSanId, selectedDate]);
 
   const getCalculatedSlots = () => {
-    let multiplier = 1;
-    if (selectedSubSan.includes('Sân 7')) multiplier = 1.35;
-    if (selectedSubSan.includes('Sân 11')) multiplier = 2.1;
     return MASTER_TIME_SLOTS.map((slot) => {
       const isBookedInDB = bookedSlotsFromDB.some(
         (b) => b.datsan_khunggio?.some((k) => k.makhunggio === slot.id) && b.trangthai !== 'DAHUY'
       );
-      const finalPrice = Math.round((slot.basePrice * multiplier) / 10000) * 10000;
       return {
         ...slot,
-        price: finalPrice,
+        price: slot.basePrice,
         isBooked: isBookedInDB,
-        subText: isBookedInDB ? 'Đã có đội đặt qua hệ thống' : 'Sân cỏ mới vừa trống'
+        subText: isBookedInDB ? 'Đã có đội đặt qua hệ thống' : 'Sân mới vừa trống'
       };
     });
   };
@@ -160,13 +165,44 @@ export default function FieldDetail({ sanId = 1, onBack, user, setUser }) {
     }
   };
 
+  // PHÂN LOẠI MÔN THỂ THAO ĐỂ BẬT DỊCH VỤ CHUẨN NGHIỆP VỤ
+  const loaiSanLower = (sanInfo?.LoaiSanText || '').toLowerCase();
+  
+  const isFootball = loaiSanLower.includes('bóng đá') || loaiSanLower.includes('sân 5') || loaiSanLower.includes('sân 7') || loaiSanLower.includes('sân 11');
+  const isBadminton = loaiSanLower.includes('cầu lông');
+  const isTennis = loaiSanLower.includes('tennis');
+  const isPickleball = loaiSanLower.includes('pickleball') || loaiSanLower.includes('pick');
+
+  // Xác định số lượng áo bib theo từng loại sân bóng đá (Chỉ cấp cho 1 đội)
+  let bibCountText = "1 bộ áo bib";
+  if (loaiSanLower.includes('sân 11')) {
+    bibCountText = "1 bộ (11 áo)";
+  } else if (loaiSanLower.includes('sân 7')) {
+    bibCountText = "1 bộ (7 áo)";
+  } else {
+    bibCountText = "1 bộ (5 áo)";
+  }
+
+  // TÍNH TIỀN THUÊ SÂN VÀ CÁC DỊCH VỤ DỰA THEO SỐ GIỜ ĐÃ CHỌN
   const totalPitchPrice = selectedSlots.reduce((sum, item) => sum + item.price, 0);
-  const priceWater = services.water ? 80000 : 0;
-  const priceBibs = services.bibs ? 50000 : 0;
-  const priceReferee = services.referee ? 150000 : 0;
-  const priceVideo = services.video ? 100000 : 0;
-  const discountAmount = selectedSlots.length > 0 ? 50000 : 0;
-  const totalPrice = totalPitchPrice + priceWater + priceBibs + priceReferee + priceVideo - discountAmount;
+  const totalHours = selectedSlots.length > 0 ? selectedSlots.length : 1;
+
+  // Giá nước uống: Bóng đá & Pickleball = 150k (12 chai); Cầu lông & Tennis = 90k (6 chai)
+  const waterPrice = (isFootball || isPickleball) ? 150000 : 90000;
+  const priceWater = services.water ? waterPrice : 0;
+  
+  // Giá áo bib: 50.000 đ
+  const priceBibs = (isFootball && services.bibs) ? 50000 : 0;
+
+  // Giá dịch vụ cầu lông: Vợt 80k/cặp/h; Hộp cầu 250k
+  const priceRacketBadminton = (isBadminton && services.racketBadminton) ? (80000 * totalHours) : 0;
+  const priceShuttlecock = (isBadminton && services.shuttlecock) ? 250000 : 0;
+
+  // Giá dịch vụ Tennis: Vợt 100k/cây/h
+  const priceRacketTennis = (isTennis && services.racketTennis) ? (100000 * totalHours) : 0;
+
+  // TỔNG TIỀN THANH TOÁN
+  const totalPrice = totalPitchPrice + priceWater + priceBibs + priceRacketBadminton + priceShuttlecock + priceRacketTennis;
 
   const currentUser = user || JSON.parse(sessionStorage.getItem('datsan_user'));
   const displayName = currentUser?.HoTen || currentUser?.hoten || 'Khách Hàng (Chưa Đăng Nhập)';
@@ -174,7 +210,6 @@ export default function FieldDetail({ sanId = 1, onBack, user, setUser }) {
 
   const handleConfirmBooking = async () => {
     if (selectedSlots.length === 0) return;
-    
     const localUser = currentUser;
     const maKH = localUser ? (localUser.MaNguoiDung || localUser.manguoidung) : 4; 
     try {
@@ -199,7 +234,13 @@ export default function FieldDetail({ sanId = 1, onBack, user, setUser }) {
       }
       alert('Tạo đơn đặt sân thành công!');
       setSelectedSlots([]);
-      setServices({ water: false, bibs: false, referee: false, video: false });
+      setServices({
+        water: false,
+        bibs: false,
+        racketBadminton: false,
+        shuttlecock: false,
+        racketTennis: false
+      });
       fetchBookedSlots();
     } catch (e) {
       alert('Lỗi đặt sân: ' + e.message);
@@ -219,14 +260,12 @@ export default function FieldDetail({ sanId = 1, onBack, user, setUser }) {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans antialiased pb-20">
-      
       {/* TOP ANNOUNCEMENT BAR */}
       <div className="bg-[#046c4e] text-emerald-100 text-xs py-1.5 px-6 border-b border-emerald-700/50">
         <div className="max-w-[1440px] mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-6">
             <span className="flex items-center gap-1.5 font-medium">
-              <Zap className="w-3.5 h-3.5 text-amber-300" />
-              Hotline hỗ trợ 24/7: <b className="text-white">1900 8899</b>
+              <Zap className="w-3.5 h-3.5 text-amber-300" /> Hotline hỗ trợ 24/7: <b className="text-white">1900 8899</b>
             </span>
             <span className="hidden md:inline text-emerald-300/80">|</span>
             <span className="hidden md:inline">Hệ thống giữ chỗ thời gian thực DatSanOnline</span>
@@ -241,8 +280,6 @@ export default function FieldDetail({ sanId = 1, onBack, user, setUser }) {
       {/* HEADER */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm font-sans">
         <div className="max-w-[1440px] mx-auto px-6 h-20 flex items-center justify-between gap-6">
-          
-          {/* LOGO & ĐỊA ĐIỂM (BẤM VÀO LUÔN TRỞ VỀ TRANG CHỦ) */}
           <div className="flex items-center gap-5">
             <Link 
               to="/" 
@@ -257,7 +294,7 @@ export default function FieldDetail({ sanId = 1, onBack, user, setUser }) {
                   DatSan<span className="text-amber-500">Online</span>
                 </span>
                 <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 mt-0.5">
-                  Hệ Sinh Thái Sân Cỏ VN
+                  Hệ Sinh Thái Thể Thao VN
                 </span>
               </div>
             </Link>
@@ -269,7 +306,6 @@ export default function FieldDetail({ sanId = 1, onBack, user, setUser }) {
             </div>
           </div>
           
-          {/* SEARCH BAR */}
           <div className="flex-1 max-w-xl hidden md:block">
             <div className="relative flex items-center">
               <input
@@ -281,7 +317,6 @@ export default function FieldDetail({ sanId = 1, onBack, user, setUser }) {
             </div>
           </div>
 
-          {/* AVATAR / ĐĂNG NHẬP (HỖ TRỢ DROPDOWN ADMIN / CHỦ SÂN / KHÁCH HÀNG) */}
           <div className="flex items-center gap-4">
             {currentUser ? (
               <div className="flex items-center gap-3">
@@ -290,14 +325,11 @@ export default function FieldDetail({ sanId = 1, onBack, user, setUser }) {
                     <Shield className="w-4 h-4" /> Quản Lý Sân
                   </button>
                 )}
-
                 {userRole === 'ADMIN' && (
                   <button onClick={() => navigate('/admin')} className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition">
                     <LayoutDashboard className="w-4 h-4" /> Trang Admin
                   </button>
                 )}
-
-                {/* Chuông thông báo */}
                 <button className="p-2 text-slate-500 hover:bg-slate-100 rounded-full transition relative">
                   <Bell className="w-5 h-5" />
                   <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full"></span>
@@ -316,49 +348,34 @@ export default function FieldDetail({ sanId = 1, onBack, user, setUser }) {
                       <div className="text-[10px] text-emerald-600 font-medium font-mono uppercase">{userRole}</div>
                     </div>
                   </button>
-
-                  {/* MENU DROPDOWN ĐẦY ĐỦ THEO VAI TRÒ (BAO GỒM ADMIN) */}
                   {showDropdown && (
                     <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 animate-in fade-in zoom-in-95 duration-100">
                       <button 
-                        onClick={() => {
-                          setShowDropdown(false);
-                          navigate('/profile');
-                        }}
+                        onClick={() => { setShowDropdown(false); navigate('/profile'); }}
                         className="w-full px-4 py-2.5 text-xs text-slate-700 hover:bg-slate-50 font-semibold flex items-center gap-2.5 transition text-left"
                       >
                         <User className="w-4 h-4 text-emerald-600" />
                         <span>Thông tin cá nhân</span>
                       </button>
-
                       {userRole === 'CHUSAN' && (
                         <button 
-                          onClick={() => {
-                            setShowDropdown(false);
-                            navigate('/owner');
-                          }}
+                          onClick={() => { setShowDropdown(false); navigate('/owner'); }}
                           className="w-full px-4 py-2.5 text-xs text-slate-700 hover:bg-slate-50 font-semibold flex items-center gap-2.5 transition text-left"
                         >
                           <Building2 className="w-4 h-4 text-amber-500" />
                           <span>Bảng quản lý sân</span>
                         </button>
                       )}
-
                       {userRole === 'ADMIN' && (
                         <button 
-                          onClick={() => {
-                            setShowDropdown(false);
-                            navigate('/admin');
-                          }}
+                          onClick={() => { setShowDropdown(false); navigate('/admin'); }}
                           className="w-full px-4 py-2.5 text-xs text-slate-700 hover:bg-slate-50 font-semibold flex items-center gap-2.5 transition text-left"
                         >
                           <LayoutDashboard className="w-4 h-4 text-purple-600" />
                           <span>Trang quản trị Admin</span>
                         </button>
                       )}
-
                       <div className="border-t border-slate-100 my-1"></div>
-
                       <button 
                         onClick={() => {
                           setShowDropdown(false);
@@ -385,22 +402,9 @@ export default function FieldDetail({ sanId = 1, onBack, user, setUser }) {
             )}
           </div>
         </div>
-        
-        {/* SUB NAV TỐI GIẢN (ĐÃ XÓA NÚT TÌM ĐỐI) */}
-        <div className="border-t border-slate-100 bg-white">
-          <div className="max-w-[1440px] mx-auto px-6 h-10 flex items-center justify-between text-xs font-semibold">
-            <div className="flex items-center gap-2 text-slate-500 font-medium">
-              <span>Hệ thống đặt sân bóng đá trực tuyến hàng đầu</span>
-            </div>
-            <div className="flex items-center gap-2 text-emerald-700 font-semibold">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-              Realtime Supabase Sync
-            </div>
-          </div>
-        </div>
       </header>
 
-      {/* BREADCRUMBS & TIÊU ĐỀ SÂN */}
+      {/* MAIN CONTENT */}
       <main className="max-w-[1440px] mx-auto px-6 pt-6">
         <div className="flex items-center justify-between mb-4">
           <div className="text-xs text-slate-400 flex items-center gap-2">
@@ -414,15 +418,14 @@ export default function FieldDetail({ sanId = 1, onBack, user, setUser }) {
           </div>
         </div>
 
-        {/* BADGES NỔI BẬT */}
         <div className="flex flex-wrap items-center gap-2 mb-2">
-          <span className="px-2.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-extrabold uppercase">CỎ MỚI 2026</span>
-          <span className="px-2.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-extrabold uppercase">CHUẨN FIFA</span>
+          <span className="px-2.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-extrabold uppercase">SÂN MỚI 2026</span>
+          <span className="px-2.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-extrabold uppercase">TIÊU CHUẨN THI ĐẤU</span>
           <span className="px-2.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-extrabold uppercase flex items-center gap-1">
             <Video className="w-3 h-3" /> CÓ CAMERA QUAY TRẬN ĐẤU
           </span>
-          <span className="px-2.5 py-0.5 rounded bg-purple-100 text-purple-800 text-[10px] font-extrabold uppercase">ĐƯỢC ĐẶT NHIỀU NHẤT TUẦN</span>
         </div>
+
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-3xl font-black text-slate-900 tracking-tight">{sanInfo?.TenSan}</h1>
@@ -448,71 +451,39 @@ export default function FieldDetail({ sanId = 1, onBack, user, setUser }) {
           </div>
         </div>
 
-        {/* LAYOUT GRID 12 CỘT */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
-          {/* CỘT TRÁI (8 CỘT) */}
           <div className="lg:col-span-8 space-y-8">
-            
-            {/* THƯ VIỆN ẢNH GALLERY GRID */}
             <div className="grid grid-cols-3 gap-3">
               <div className="col-span-2 relative h-[380px] rounded-2xl overflow-hidden shadow-sm bg-slate-100">
                 <img src={sanInfo?.Image} alt="Main" className="w-full h-full object-cover" />
-                <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-md text-white text-xs px-3 py-1.5 rounded-xl font-bold">
-                  Hệ thống sân cỏ nhân tạo tiêu chuẩn thi đấu, đèn LED 1000W
-                </div>
               </div>
               <div className="grid grid-rows-3 gap-2 h-[380px]">
                 <div className="rounded-xl overflow-hidden bg-slate-100 relative">
                   <img src="https://images.unsplash.com/photo-1575361204480-aadea25e6e68?auto=format&fit=crop&w=400&q=80" alt="Sub 1" className="w-full h-full object-cover" />
-                  <span className="absolute bottom-2 left-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded font-bold">Khán đài có mái che</span>
                 </div>
                 <div className="rounded-xl overflow-hidden bg-slate-100 relative">
                   <img src="https://images.unsplash.com/photo-1551958219-acbc608c6377?auto=format&fit=crop&w=400&q=80" alt="Sub 2" className="w-full h-full object-cover" />
-                  <span className="absolute bottom-2 left-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded font-bold">Phòng tắm nóng lạnh</span>
                 </div>
                 <div className="rounded-xl overflow-hidden bg-slate-100 relative">
                   <img src="https://images.unsplash.com/photo-1626248801379-51a0748a5f96?auto=format&fit=crop&w=400&q=80" alt="Sub 3" className="w-full h-full object-cover" />
-                  <span className="absolute bottom-2 left-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded font-bold">Bãi đỗ ô tô 50 xe</span>
                 </div>
               </div>
             </div>
 
-            {/* TIỆN ÍCH TIÊU CHUẨN SÂN BÃI */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-              <h3 className="font-extrabold text-base text-slate-900 mb-4 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-emerald-600" /> Tiện Ích Tiêu Chuẩn Sân Bãi
-              </h3>
-              <div className="grid grid-cols-3 gap-4 text-xs">
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold"><Zap className="w-4 h-4" /></div>
-                  <div><div className="font-bold">Đèn LED 1000W</div><div className="text-[11px] text-slate-400">Góc chiếu sáng rộng chống chói</div></div>
-                </div>
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
-                  <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold"><Car className="w-4 h-4" /></div>
-                  <div><div className="font-bold">Bãi đỗ ô tô & Xe máy</div><div className="text-[11px] text-slate-400">Bảo vệ & camera an ninh 24/7</div></div>
-                </div>
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
-                  <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center font-bold"><Coffee className="w-4 h-4" /></div>
-                  <div><div className="font-bold">Tắm nóng lạnh</div><div className="text-[11px] text-slate-400">Khu thay đồ & tủ khóa riêng</div></div>
-                </div>
-              </div>
-            </div>
-
-            {/* BẢNG CHỌN NGÀY & KHUNG GIỜ */}
             <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
               <div className="flex justify-between items-center mb-4">
                 <div>
-                  <h3 className="font-extrabold text-base text-slate-900">Bảng Khung Giờ Thi Đấu Trực Quan (1 Tiếng/Ca)</h3>
+                  <h3 className="font-extrabold text-base text-slate-900">Bảng Khung Giờ Thi Đấu Trực Quan</h3>
                   <p className="text-xs text-slate-400">Có thể bấm chọn nhiều ca liên tiếp để đặt 2-3 tiếng.</p>
                 </div>
                 <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span> Realtime Supabase
                 </span>
               </div>
-              {/* BƯỚC 1: CHỌN NGÀY ĐÁ */}
+
+              {/* CHỌN NGÀY ĐÁ */}
               <div className="mb-5">
-                <div className="text-xs font-bold uppercase text-slate-400 mb-2">BƯỚC 1: CHỌN NGÀY ĐÁ</div>
+                <div className="text-xs font-bold uppercase text-slate-400 mb-2">CHỌN NGÀY ĐÁ</div>
                 <div className="grid grid-cols-6 gap-2">
                   {[
                     { day: 'HÔM NAY', date: '03/11', full: '2026-11-03', label: 'Thứ Ba' },
@@ -538,34 +509,16 @@ export default function FieldDetail({ sanId = 1, onBack, user, setUser }) {
                   ))}
                 </div>
               </div>
-              {/* BƯỚC 2: CHỌN PHÂN LOẠI SÂN */}
-              <div className="mb-6">
-                <div className="text-xs font-bold uppercase text-slate-400 mb-2">BƯỚC 2: CHỌN PHÂN LOẠI SÂN</div>
-                <div className="flex gap-3">
-                  {['Sân 5 người (Sân A1, A2, A3)', 'Sân 7 người (Sân B1, B2)', 'Sân 11 người (Toàn sân Tuyên Sơn)'].map((sub) => (
-                    <button
-                      key={sub}
-                      onClick={() => setSelectedSubSan(sub)}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-                        selectedSubSan === sub 
-                          ? 'bg-emerald-600 text-white shadow' 
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
-                    >
-                      <Check className="w-3.5 h-3.5" /> {sub}
-                    </button>
-                  ))}
-                </div>
+
+              {/* PHÂN LOẠI SÂN TỪ CSDL */}
+              <div className="mb-6 flex items-center gap-2">
+                <span className="text-xs font-bold uppercase text-slate-400">Loại sân:</span>
+                <span className="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-lg text-xs font-bold">
+                  {sanInfo?.LoaiSanText}
+                </span>
               </div>
-              {/* CHÚ THÍCH TRẠNG THÁI */}
-              <div className="flex items-center gap-6 text-xs font-bold mb-4 pb-3 border-b border-slate-100">
-                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-600"></span> Còn trống</span>
-                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-amber-500"></span> Đang chọn</span>
-                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-slate-200"></span> Đã cọc</span>
-                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-amber-400"></span> Giờ Vàng VIP</span>
-              </div>
-              
-              {/* GRID KHUNG GIỜ THI ĐẤU 1 TIẾNG */}
+
+              {/* GRID KHUNG GIỜ */}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {currentDynamicSlots.map((slot) => {
                     const isSelected = selectedSlots.some(s => s.id === slot.id);
@@ -598,79 +551,176 @@ export default function FieldDetail({ sanId = 1, onBack, user, setUser }) {
                 })}
               </div>
             </div>
-            {/* DỊCH VỤ CỘNG THÊM */}
+
+            {/* DỊCH VỤ CỘNG THÊM (CHUẨN ĐÚNG NGHIỆP VỤ BÁO GIÁ THEO MÔN) */}
             <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
               <h3 className="font-extrabold text-base text-slate-900 mb-1">Dịch Vụ Cộng Thêm Phục Vụ Trận Đấu (Tùy chọn)</h3>
-              <p className="text-xs text-slate-400 mb-4">Chọn thêm dịch vụ đi kèm khi chọn được khung giờ đá.</p>
+              <p className="text-xs text-slate-400 mb-4">Các gói dịch vụ đi kèm chuẩn theo môn {sanInfo?.LoaiSanText}.</p>
+              
               <div className="space-y-3">
-                <label className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 cursor-pointer transition">
-                  <div className="flex items-center gap-3">
-                    <input 
-                      type="checkbox" 
-                      checked={services.water} 
-                      onChange={(e) => setServices({ ...services, water: e.target.checked })} 
-                      className="w-4 h-4 accent-emerald-600 rounded" 
-                    />
-                    <div>
-                      <div className="font-bold text-xs text-slate-800">Thùng nước uống đá lạnh 24 chai (ướp lạnh sẵn)</div>
-                      <div className="text-[11px] text-slate-400">Thùng đá ướp lạnh sẵn mang tận sân trước 15 phút bóng lăn</div>
+                {/* 1. BÓNG ĐÁ */}
+                {isFootball && (
+                  <>
+                    <label className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 cursor-pointer transition">
+                      <div className="flex items-center gap-3">
+                        <input 
+                          type="checkbox" 
+                          checked={services.water} 
+                          onChange={(e) => setServices({ ...services, water: e.target.checked })} 
+                          className="w-4 h-4 accent-emerald-600 rounded" 
+                        />
+                        <div>
+                          <div className="font-bold text-xs text-slate-800">Thùng nước uống 12 chai (ướp lạnh sẵn)</div>
+                          <div className="text-[11px] text-slate-400">Nước ướp lạnh mang tận sân trước 15 phút giờ thi đấu</div>
+                        </div>
+                      </div>
+                      <span className="font-black text-xs text-emerald-700">+150.000 đ</span>
+                    </label>
+
+                    <label className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 cursor-pointer transition">
+                      <div className="flex items-center gap-3">
+                        <input 
+                          type="checkbox" 
+                          checked={services.bibs} 
+                          onChange={(e) => setServices({ ...services, bibs: e.target.checked })} 
+                          className="w-4 h-4 accent-emerald-600 rounded" 
+                        />
+                        <div>
+                          <div className="font-bold text-xs text-slate-800">Thuê {bibCountText} thi đấu</div>
+                          <div className="text-[11px] text-slate-400">Áo giặt sạch sẽ, cấp đủ số lượng cho 1 đội bóng</div>
+                        </div>
+                      </div>
+                      <span className="font-black text-xs text-emerald-700">+50.000 đ</span>
+                    </label>
+                  </>
+                )}
+
+                {/* 2. CẦU LÔNG */}
+                {isBadminton && (
+                  <>
+                    <label className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 cursor-pointer transition">
+                      <div className="flex items-center gap-3">
+                        <input 
+                          type="checkbox" 
+                          checked={services.water} 
+                          onChange={(e) => setServices({ ...services, water: e.target.checked })} 
+                          className="w-4 h-4 accent-emerald-600 rounded" 
+                        />
+                        <div>
+                          <div className="font-bold text-xs text-slate-800">Block nước uống 6 chai (ướp lạnh sẵn)</div>
+                          <div className="text-[11px] text-slate-400">Phù hợp cho nhóm thi đấu cầu lông</div>
+                        </div>
+                      </div>
+                      <span className="font-black text-xs text-emerald-700">+90.000 đ</span>
+                    </label>
+
+                    <label className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 cursor-pointer transition">
+                      <div className="flex items-center gap-3">
+                        <input 
+                          type="checkbox" 
+                          checked={services.racketBadminton} 
+                          onChange={(e) => setServices({ ...services, racketBadminton: e.target.checked })} 
+                          className="w-4 h-4 accent-emerald-600 rounded" 
+                        />
+                        <div>
+                          <div className="font-bold text-xs text-slate-800">Thuê 1 cặp vợt cầu lông cao cấp</div>
+                          <div className="text-[11px] text-slate-400">Tính giá 80.000 đ / 1 cặp / 1 giờ</div>
+                        </div>
+                      </div>
+                      <span className="font-black text-xs text-emerald-700">+{ (80000 * totalHours).toLocaleString('vi-VN') } đ</span>
+                    </label>
+
+                    <label className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 cursor-pointer transition">
+                      <div className="flex items-center gap-3">
+                        <input 
+                          type="checkbox" 
+                          checked={services.shuttlecock} 
+                          onChange={(e) => setServices({ ...services, shuttlecock: e.target.checked })} 
+                          className="w-4 h-4 accent-emerald-600 rounded" 
+                        />
+                        <div>
+                          <div className="font-bold text-xs text-slate-800">Hộp cầu thi đấu mới (12 quả bóc tem tại sân)</div>
+                          <div className="text-[11px] text-slate-400">Cầu bền, đường bay chuẩn</div>
+                        </div>
+                      </div>
+                      <span className="font-black text-xs text-emerald-700">+250.000 đ</span>
+                    </label>
+                  </>
+                )}
+
+                {/* 3. TENNIS */}
+                {isTennis && (
+                  <>
+                    <label className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 cursor-pointer transition">
+                      <div className="flex items-center gap-3">
+                        <input 
+                          type="checkbox" 
+                          checked={services.water} 
+                          onChange={(e) => setServices({ ...services, water: e.target.checked })} 
+                          className="w-4 h-4 accent-emerald-600 rounded" 
+                        />
+                        <div>
+                          <div className="font-bold text-xs text-slate-800">Block nước uống 6 chai (ướp lạnh sẵn)</div>
+                          <div className="text-[11px] text-slate-400">Nước ướp lạnh sẵn tại sân</div>
+                        </div>
+                      </div>
+                      <span className="font-black text-xs text-emerald-700">+90.000 đ</span>
+                    </label>
+
+                    <label className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 cursor-pointer transition">
+                      <div className="flex items-center gap-3">
+                        <input 
+                          type="checkbox" 
+                          checked={services.racketTennis} 
+                          onChange={(e) => setServices({ ...services, racketTennis: e.target.checked })} 
+                          className="w-4 h-4 accent-emerald-600 rounded" 
+                        />
+                        <div>
+                          <div className="font-bold text-xs text-slate-800">Thuê 1 cây vợt Tennis chuyên nghiệp</div>
+                          <div className="text-[11px] text-slate-400">Tính giá 100.000 đ / 1 cây / 1 giờ</div>
+                        </div>
+                      </div>
+                      <span className="font-black text-xs text-emerald-700">+{ (100000 * totalHours).toLocaleString('vi-VN') } đ</span>
+                    </label>
+
+                    <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Bóng Tennis đã được miễn phí bao gồm sẵn khi thuê sân!</span>
                     </div>
-                  </div>
-                  <span className="font-black text-xs text-emerald-700">+80.000 đ</span>
-                </label>
-                <label className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 cursor-pointer transition">
-                  <div className="flex items-center gap-3">
-                    <input 
-                      type="checkbox" 
-                      checked={services.bibs} 
-                      onChange={(e) => setServices({ ...services, bibs: e.target.checked })} 
-                      className="w-4 h-4 accent-emerald-600 rounded" 
-                    />
-                    <div>
-                      <div className="font-bold text-xs text-slate-800">Thuê 2 bộ áo bib thi đấu (14 áo chia 2 màu cam / xanh)</div>
-                      <div className="text-[11px] text-slate-400">Áo giặt sạch sẽ, phân định đội hình chuyên nghiệp</div>
+                  </>
+                )}
+
+                {/* 4. PICKLEBALL */}
+                {isPickleball && (
+                  <>
+                    <label className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 cursor-pointer transition">
+                      <div className="flex items-center gap-3">
+                        <input 
+                          type="checkbox" 
+                          checked={services.water} 
+                          onChange={(e) => setServices({ ...services, water: e.target.checked })} 
+                          className="w-4 h-4 accent-emerald-600 rounded" 
+                        />
+                        <div>
+                          <div className="font-bold text-xs text-slate-800">Thùng nước uống 12 chai (ướp lạnh sẵn)</div>
+                          <div className="text-[11px] text-slate-400">Ướp lạnh sẵn mang tận sân cho nhóm thi đấu</div>
+                        </div>
+                      </div>
+                      <span className="font-black text-xs text-emerald-700">+150.000 đ</span>
+                    </label>
+
+                    <div className="p-3 rounded-xl bg-slate-100 text-xs text-slate-500">
+                      Sân Pickleball hiện không hỗ trợ dịch vụ cho thuê vợt và bóng. Quý khách vui lòng tự chuẩn bị dụng cụ.
                     </div>
-                  </div>
-                  <span className="font-black text-xs text-emerald-700">+50.000 đ</span>
-                </label>
+                  </>
+                )}
               </div>
             </div>
           </div>
-          
-          {/* CỘT PHẢI (4 CỘT STICKY) */}
+
+          {/* CỘT TÍNH TIỀN BÊN PHẢI */}
           <div className="lg:col-span-4">
             <div className="sticky top-24 space-y-4">
-              {/* Ô BADGE NHẬN DIỆN TÀI KHOẢN ĐANG ĐĂNG NHẬP HOẶC GUEST */}
-              <div className="bg-slate-900 text-white rounded-2xl p-4 border border-slate-800 shadow-md">
-                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block mb-1.5">
-                  TÀI KHOẢN THỰC HIỆN THAO TÁC:
-                </span>
-                
-                {currentUser ? (
-                  <div className="flex items-center justify-between bg-slate-800/80 p-2.5 rounded-xl border border-slate-700">
-                    <div className="flex items-center gap-2.5 overflow-hidden">
-                      <div className="w-8 h-8 rounded-lg bg-emerald-500 text-slate-950 font-black flex items-center justify-center text-xs shrink-0">
-                        {displayName.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="truncate">
-                        <div className="font-extrabold text-xs text-white truncate">{displayName}</div>
-                        <div className="text-[10px] text-emerald-400 font-mono font-bold">{userRole}</div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between bg-slate-800/80 p-2.5 rounded-xl border border-slate-700">
-                    <span className="text-xs font-bold text-slate-300">Trạng thái: Khách (Guest)</span>
-                    <button 
-                      onClick={() => navigate('/login')}
-                      className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-[11px] font-black rounded-lg transition"
-                    >
-                      Đăng nhập
-                    </button>
-                  </div>
-                )}
-              </div>
-              {/* TÍNH TIỀN KHI ĐÃ CHỌN KHUNG GIỜ */}
               <div className="bg-white rounded-2xl border border-slate-200 shadow-xl p-6">
                 {selectedSlots.length > 0 ? (
                   <>
@@ -684,7 +734,7 @@ export default function FieldDetail({ sanId = 1, onBack, user, setUser }) {
                     <div className="space-y-3 text-xs border-b border-slate-100 pb-4 mb-4">
                       <div className="flex justify-between items-start">
                         <span className="text-slate-500">Sân thi đấu:</span>
-                        <span className="font-extrabold text-slate-900 text-right">{selectedSubSan}<br /><span className="text-[10px] font-normal text-slate-400">{sanInfo?.TenSan}</span></span>
+                        <span className="font-extrabold text-slate-900 text-right">{sanInfo?.LoaiSanText}<br /><span className="text-[10px] font-normal text-slate-400">{sanInfo?.TenSan}</span></span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-slate-500">Ngày sử dụng:</span>
@@ -702,6 +752,7 @@ export default function FieldDetail({ sanId = 1, onBack, user, setUser }) {
                       </div>
                     </div>
                     
+                    {/* BẢNG BÓC TÁCH CHI TIẾT TỔNG TIỀN */}
                     <div className="space-y-2 text-xs border-b border-slate-100 pb-4 mb-4">
                       <div className="flex justify-between">
                         <span className="text-slate-500">Tổng tiền thuê sân:</span>
@@ -709,21 +760,36 @@ export default function FieldDetail({ sanId = 1, onBack, user, setUser }) {
                       </div>
                       {services.water && (
                         <div className="flex justify-between text-slate-600">
-                          <span>Thùng nước uống 24 chai:</span>
-                          <span className="font-bold">+80.000 đ</span>
+                          <span>Nước uống ({(isFootball || isPickleball) ? 'Thùng 12 chai' : 'Block 6 chai'}):</span>
+                          <span className="font-bold">+{waterPrice.toLocaleString('vi-VN')} đ</span>
                         </div>
                       )}
-                      {services.bibs && (
+                      {isFootball && services.bibs && (
                         <div className="flex justify-between text-slate-600">
-                          <span>Thuê 2 bộ áo bib:</span>
+                          <span>Thuê {bibCountText}:</span>
                           <span className="font-bold">+50.000 đ</span>
                         </div>
                       )}
-                      <div className="flex justify-between text-emerald-700 font-bold">
-                        <span>🏷️ Mã giảm giá (SANVIP50):</span>
-                        <span>-50.000 đ</span>
-                      </div>
+                      {isBadminton && services.racketBadminton && (
+                        <div className="flex justify-between text-slate-600">
+                          <span>Thuê 1 cặp vợt ({totalHours}h):</span>
+                          <span className="font-bold">+{(80000 * totalHours).toLocaleString('vi-VN')} đ</span>
+                        </div>
+                      )}
+                      {isBadminton && services.shuttlecock && (
+                        <div className="flex justify-between text-slate-600">
+                          <span>Hộp cầu thi đấu mới:</span>
+                          <span className="font-bold">+250.000 đ</span>
+                        </div>
+                      )}
+                      {isTennis && services.racketTennis && (
+                        <div className="flex justify-between text-slate-600">
+                          <span>Thuê 1 cây vợt Tennis ({totalHours}h):</span>
+                          <span className="font-bold">+{(100000 * totalHours).toLocaleString('vi-VN')} đ</span>
+                        </div>
+                      )}
                     </div>
+
                     <div className="flex justify-between items-center mb-6">
                       <div>
                         <div className="text-[11px] text-slate-400 uppercase font-bold">TỔNG TIỀN THANH TOÁN</div>
@@ -734,35 +800,20 @@ export default function FieldDetail({ sanId = 1, onBack, user, setUser }) {
                       </div>
                     </div>
                     
-                    <div className="mb-4">
-                      <button 
-                        disabled={isSubmitting}
-                        onClick={handleConfirmBooking}
-                        className="w-full py-4 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-black text-sm rounded-xl shadow-lg shadow-amber-500/30 transition flex items-center justify-center gap-2"
-                      >
-                        {isSubmitting ? 'ĐANG LƯU CSDL...' : 'XÁC NHẬN ĐẶT SÂN & GIỮ CHỖ'} <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </div>
+                    <button 
+                      disabled={isSubmitting}
+                      onClick={handleConfirmBooking}
+                      className="w-full py-4 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-black text-sm rounded-xl shadow-lg shadow-amber-500/30 transition flex items-center justify-center gap-2"
+                    >
+                      {isSubmitting ? 'ĐANG LƯU CSDL...' : 'XÁC NHẬN ĐẶT SÂN & GIỮ CHỖ'} <ChevronRight className="w-4 h-4" />
+                    </button>
                   </>
                 ) : (
                   <div className="py-8 text-center space-y-3">
-                    <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 mx-auto flex items-center justify-center">
-                      <AlertCircle className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-slate-800 text-sm">Chưa Chọn Khung Giờ</h4>
-                      <p className="text-xs text-slate-400 mt-1">Vui lòng bấm chọn các ca 1 tiếng bên trái để cộng dồn giờ đá.</p>
-                    </div>
+                    <AlertCircle className="w-5 h-5 text-slate-400 mx-auto" />
+                    <h4 className="font-bold text-slate-800 text-sm">Chưa Chọn Khung Giờ</h4>
                   </div>
                 )}
-                <div className="text-[11px] text-slate-400 space-y-1.5 bg-slate-50 p-3 rounded-xl border border-slate-100 mt-4">
-                  <div className="flex items-center gap-1.5 text-slate-600 font-semibold">
-                    <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> Hoàn tiền 100% nếu hủy trước 24h
-                  </div>
-                  <div className="flex items-center gap-1.5 text-slate-600 font-semibold">
-                    <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> Đồng bộ CSDL Supabase Realtime
-                  </div>
-                </div>
               </div>
             </div>
           </div>
